@@ -6,8 +6,12 @@ import (
 )
 
 type Database struct {
-	DatabaseURI  string `yaml:"database_uri" required:"true" env:"DATABASE_URI"`
-	DatabaseName string `yaml:"database_name" required:"true" env:"DATABASE_NAME"`
+	Name      string `yaml:"name" required:"true" env:"DATABASE_NAME"`
+	Host      string `yaml:"host" required:"true" env:"DATABASE_HOST"`
+	Port      int    `yaml:"port" required:"true" env:"DATABASE_PORT"`
+	User      string `yaml:"user" required:"true"`
+	Password  string `yaml:"password" required:"true"`
+	TableName string `yaml:"table_name" required:"true"`
 }
 
 type Config struct {

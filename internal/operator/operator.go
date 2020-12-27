@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/config"
+	"github.com/daniilsolovey/crypto-ticks-downloader/internal/database"
 	"github.com/gorilla/websocket"
 	"github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/reconquest/karma-go"
@@ -13,19 +14,18 @@ import (
 type Operator struct {
 	config    *config.Config
 	websocket *websocket.Conn
-	// database    *database.Database
-
+	database  *database.Database
 }
 
 func NewOperator(
 	config *config.Config,
-	// database *database.Database,
+	database *database.Database,
 	websocket *websocket.Conn,
 ) *Operator {
 	return &Operator{
 		config:    config,
 		websocket: websocket,
-		// database:         database,
+		database:  database,
 	}
 }
 
@@ -55,6 +55,33 @@ func (operator *Operator) GetPrices() error {
 				Describe("best bid: ", message.BestBid), "currency: %s", message.ProductID)
 
 		time.Sleep(1 * time.Second)
+	}
+
+	return nil
+}
+
+func (operator *Operator) WritePrices() error {
+	err := operator.database.CreateTicksTable()
+	if err != nil {
+		return karma.Format(
+			err,
+			"unable to create schema in the database",
+		)
+	}
+
+	currency_1 := database.Ticks{
+		Timestamp: time.Now().Unix(),
+		Symbol:    "BTC",
+		AskPrice:  23.34,
+		BidPrice:  55.32,
+	}
+
+	err = operator.database.Write(currency_1)
+	if err != nil {
+		return karma.Format(
+			err,
+			"unable to write currency to the database",
+		)
 	}
 
 	return nil

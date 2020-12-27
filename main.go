@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/config"
+	"github.com/daniilsolovey/crypto-ticks-downloader/internal/database"
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/operator"
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/websocket"
 	"github.com/docopt/docopt-go"
@@ -51,19 +52,28 @@ func main() {
 		log.Fatal(err)
 	}
 
+	log.Infof(
+		karma.Describe("database", config.Database.Name),
+		"connecting to the database",
+	)
+
+	database := database.NewDatabase(
+		config.Database.Name, config.Database.User, config.Database.Password,
+	)
+	defer database.Close()
 	websocket, err := websocket.NewWebSocketConnection(config.WebsocketURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	operator := operator.NewOperator(config, websocket)
-
-	err = operator.GetPrices()
-	if err != nil {
-		log.Fatal(err)
-	}
-	// err = websocket.CreateConnection(websocket)
+	operator := operator.NewOperator(config, database, websocket)
+	// err = operator.GetPrices()
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
+	err = operator.WritePrices()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 }
