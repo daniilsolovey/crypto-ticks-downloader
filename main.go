@@ -71,13 +71,16 @@ func main() {
 		config, postgresDB, websocket, make(chan *database.Ticks),
 	)
 
+	log.Info("creating 'ticks' table")
 	err = operator.CreateTicksTable()
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	log.Info("start of ticks handling")
 	go operator.HandleTicks()
 
+	log.Info("receiving ticks")
 	err = operator.ReceiveTicks()
 	if err != nil {
 		log.Fatal(err)
