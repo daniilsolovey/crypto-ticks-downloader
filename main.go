@@ -57,21 +57,27 @@ func main() {
 		"connecting to the database",
 	)
 
-	database := database.NewDatabase(
+	newDatabase := database.NewDatabase(
 		config.Database.Name, config.Database.User, config.Database.Password,
 	)
-	defer database.Close()
+	defer newDatabase.Close()
 	websocket, err := websocket.NewWebSocketConnection(config.WebsocketURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	operator := operator.NewOperator(config, database, websocket)
-	// err = operator.GetPrices()
+	channel := make(chan *database.Ticker)
+
+	operator := operator.NewOperator(config, newDatabase, websocket, channel)
+
+	// err = operator.WritePrices()
 	// if err != nil {
 	// 	log.Fatal(err)
 	// }
-	err = operator.WritePrices()
+
+	go operator.DistributeTickers()
+
+	err = operator.GetPrices()
 	if err != nil {
 		log.Fatal(err)
 	}

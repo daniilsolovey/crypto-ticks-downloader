@@ -1,6 +1,8 @@
 package operator
 
 import (
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/config"
@@ -12,21 +14,72 @@ import (
 )
 
 type Operator struct {
-	config    *config.Config
-	websocket *websocket.Conn
-	database  *database.Database
+	config           *config.Config
+	websocket        *websocket.Conn
+	database         *database.Database
+	distributionChan chan *database.Ticker
 }
 
 func NewOperator(
 	config *config.Config,
 	database *database.Database,
 	websocket *websocket.Conn,
+	channel chan *database.Ticker,
 ) *Operator {
 	return &Operator{
-		config:    config,
-		websocket: websocket,
-		database:  database,
+		config:           config,
+		websocket:        websocket,
+		database:         database,
+		distributionChan: channel,
 	}
+}
+
+func (operator *Operator) DistributeTickers() {
+	for {
+		select {
+		case data, ok := <-operator.distributionChan:
+			if ok {
+				log.Warning("x ", data)
+				fmt.Printf("Value %v was read.\n", data)
+				switch data.Symbol {
+				case "BTC-USD":
+					go operator.WriteBTCUSD(data)
+				case "ETH-BTC":
+					go operator.WriteETHBTC(data)
+				case "BTC-EUR":
+					go operator.WriteBTCEUR(data)
+				}
+
+				continue
+			}
+		}
+	}
+}
+
+func (operator *Operator) WriteBTCUSD(ticker *database.Ticker) {
+	fmt.Println("ticker: ", ticker)
+	err := operator.database.Write(*ticker)
+	if err != nil {
+		log.Error(err)
+	}
+}
+
+func (operator *Operator) WriteETHBTC(ticker *database.Ticker) {
+	fmt.Println("ticker: ", ticker)
+	err := operator.database.Write(*ticker)
+	if err != nil {
+		log.Error(err)
+	}
+
+}
+
+func (operator *Operator) WriteBTCEUR(ticker *database.Ticker) {
+	fmt.Println("ticker: ", ticker)
+	err := operator.database.Write(*ticker)
+	if err != nil {
+		log.Error(err)
+	}
+
 }
 
 func (operator *Operator) GetPrices() error {
@@ -45,19 +98,52 @@ func (operator *Operator) GetPrices() error {
 		if err != nil {
 			return karma.Format(
 				err,
-				"unable to write json as message",
+				"unable to read json as message",
 			)
 		}
 
-		log.Infof(
-			karma.
-				Describe("best ask: ", message.BestAsk).
-				Describe("best bid: ", message.BestBid), "currency: %s", message.ProductID)
+		ask, bid, err := preparePrices(message.BestAsk, message.BestBid)
+		if err != nil {
+			return karma.Format(
+				err,
+				"unable to handle prices",
+			)
+		}
 
-		time.Sleep(1 * time.Second)
+		operator.distributionChan <- &database.Ticker{
+			Symbol:   message.ProductID,
+			AskPrice: ask,
+			BidPrice: bid,
+		}
 	}
 
 	return nil
+}
+
+func preparePrices(ask, bid string) (float64, float64, error) {
+	if ask == "" || bid == "" {
+		return 0, 0, nil
+	}
+
+	resultAsk, err := strconv.ParseFloat(ask, 64)
+	if err != nil {
+		return 0, 0, karma.Format(
+			err,
+			"unable to convert ask price to float64, ask: %s",
+			ask,
+		)
+	}
+
+	resultBid, err := strconv.ParseFloat(bid, 64)
+	if err != nil {
+		return 0, 0, karma.Format(
+			err,
+			"unable to convert bid to float64, bid: %s",
+			bid,
+		)
+	}
+
+	return resultAsk, resultBid, nil
 }
 
 func (operator *Operator) WritePrices() error {
@@ -69,10 +155,10 @@ func (operator *Operator) WritePrices() error {
 		)
 	}
 
-	currency_1 := database.Ticks{
+	currency_1 := database.Ticker{
 		Timestamp: time.Now().Unix(),
 		Symbol:    "BTC",
-		AskPrice:  23.34,
+		AskPrice:  23.343,
 		BidPrice:  55.32,
 	}
 

@@ -2,6 +2,7 @@ package database
 
 import (
 	"strings"
+	"time"
 
 	"github.com/go-pg/pg"
 	"github.com/go-pg/pg/orm"
@@ -16,7 +17,7 @@ type Database struct {
 	client   *pg.DB
 }
 
-type Ticks struct {
+type Ticker struct {
 	Timestamp int64
 	Symbol    string
 	AskPrice  float64
@@ -57,8 +58,9 @@ func (database *Database) Close() error {
 	return nil
 }
 
-func (database *Database) Write(ticks Ticks) error {
-	_, err := database.client.Model(&ticks).Insert()
+func (database *Database) Write(ticker Ticker) error {
+	ticker.Timestamp = makeTimestamp()
+	_, err := database.client.Model(&ticker).Insert()
 	if err != nil {
 		return karma.Format(
 			err,
@@ -67,21 +69,19 @@ func (database *Database) Write(ticks Ticks) error {
 	}
 
 	log.Debugf(
-		karma.Describe("symbol", ticks.Symbol).
-			Describe("timestamp", ticks.Timestamp).
-			Describe("timestamp", ticks.AskPrice).
-			Describe("timestamp", ticks.BidPrice),
-		"ticks succesfully writted to the database",
+		karma.Describe("symbol", ticker.Symbol).
+			Describe("timestamp", ticker.Timestamp).
+			Describe("timestamp", ticker.AskPrice).
+			Describe("timestamp", ticker.BidPrice),
+		"ticks were successfully written to the database",
 	)
 
 	return nil
 }
 
 func (database *Database) CreateTicksTable() error {
-	var model *Ticks
-	err := database.client.Model(model).CreateTable(&orm.CreateTableOptions{
-		Temp: false,
-	})
+	var model *Ticker
+	err := database.client.Model(model).CreateTable(&orm.CreateTableOptions{})
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
 		return karma.Format(
 			err,
@@ -91,4 +91,8 @@ func (database *Database) CreateTicksTable() error {
 
 	log.Info("table succesfully created")
 	return nil
+}
+
+func makeTimestamp() int64 {
+	return time.Now().UnixNano() / int64(time.Millisecond)
 }
