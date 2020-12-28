@@ -21,6 +21,8 @@ github.com/kovetskiy/lorg v0.0.0-20200107130803-9a7136a95634 h1:szpgh20EtHoQhJ38
 github.com/kovetskiy/lorg v0.0.0-20200107130803-9a7136a95634/go.mod h1:B8HeKAukXULNzWWsW5k/SQyDkiQZPn7lTBJDB46MZ9I=
 github.com/kovetskiy/toml v0.2.0 h1:tMsPGWE3ejTjXop10/17b/tDtbwQJZdBfc0e+l3WndA=
 github.com/kovetskiy/toml v0.2.0/go.mod h1:+nh++V8wCesSlfPA3DSXGO1hiAHDVHDqem4ixTsWuRY=
+github.com/lib/pq v1.9.0 h1:L8nSXQQzAYByakOFMTwpjRoHsMJklur4Gi59b6VivR8=
+github.com/lib/pq v1.9.0/go.mod h1:AlVN5x4E4T544tWzH6hKfbfQvm3HdbOxrmggDNAPY9o=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/preichenberger/go-coinbasepro/v2 v2.0.5 h1:Mf1k3vZTuLzuzcmCJBIbT8eiRD+N2uEG2C6Ug3upXiA=
 github.com/preichenberger/go-coinbasepro/v2 v2.0.5/go.mod h1:tsiN/OFQ5FiE+T2i3r88GHDVvR/Jxkx+CGKw7JSYLrE=

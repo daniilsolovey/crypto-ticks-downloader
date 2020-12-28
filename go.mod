@@ -8,6 +8,7 @@ require (
 	github.com/gorilla/websocket v1.4.2
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/kovetskiy/ko v0.0.0-20200620085804-ec6b220882b0
+	github.com/lib/pq v1.9.0
 	github.com/preichenberger/go-coinbasepro/v2 v2.0.5
 	github.com/reconquest/karma-go v0.0.0-20200928103525-22da92476de6
 	github.com/reconquest/pkg v0.0.0-20201112120128-927c6794df56

@@ -1,15 +1,9 @@
 package websocket
 
 import (
-	"github.com/daniilsolovey/crypto-ticks-downloader/internal/config"
 	ws "github.com/gorilla/websocket"
 	"github.com/reconquest/karma-go"
 )
-
-type Client struct {
-	config   *config.Config
-	wsDialer ws.Dialer
-}
 
 func NewWebSocketConnection(
 	url string,

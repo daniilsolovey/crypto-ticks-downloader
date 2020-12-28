@@ -14,7 +14,7 @@ var version = "[manual build]"
 
 var usage = `crypto-ticks-downloader
 
-Download ticks and save it to the database.
+Download ticks and save them to the database.
 
 Usage:
   crypto-ticks-downloader [options]
@@ -57,29 +57,29 @@ func main() {
 		"connecting to the database",
 	)
 
-	newDatabase := database.NewDatabase(
+	postgresDB := database.NewDatabase(
 		config.Database.Name, config.Database.User, config.Database.Password,
 	)
-	defer newDatabase.Close()
+	defer postgresDB.Close()
+
 	websocket, err := websocket.NewWebSocketConnection(config.WebsocketURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	channel := make(chan *database.Ticker)
+	operator := operator.NewOperator(
+		config, postgresDB, websocket, make(chan *database.Ticks),
+	)
 
-	operator := operator.NewOperator(config, newDatabase, websocket, channel)
-
-	// err = operator.WritePrices()
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-
-	go operator.DistributeTickers()
-
-	err = operator.GetPrices()
+	err = operator.CreateTicksTable()
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	go operator.HandleTicks()
+
+	err = operator.ReceiveTicks()
+	if err != nil {
+		log.Fatal(err)
+	}
 }

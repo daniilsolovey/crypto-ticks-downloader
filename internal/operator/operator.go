@@ -1,9 +1,7 @@
 package operator
 
 import (
-	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/config"
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/database"
@@ -17,37 +15,85 @@ type Operator struct {
 	config           *config.Config
 	websocket        *websocket.Conn
 	database         *database.Database
-	distributionChan chan *database.Ticker
+	distributionChan chan *database.Ticks
 }
 
 func NewOperator(
 	config *config.Config,
 	database *database.Database,
 	websocket *websocket.Conn,
-	channel chan *database.Ticker,
+	distributionChan chan *database.Ticks,
 ) *Operator {
 	return &Operator{
 		config:           config,
 		websocket:        websocket,
 		database:         database,
-		distributionChan: channel,
+		distributionChan: distributionChan,
 	}
 }
 
-func (operator *Operator) DistributeTickers() {
+func (operator *Operator) CreateTicksTable() error {
+	err := operator.database.CreateTicksTable()
+	if err != nil {
+		return karma.Format(
+			err,
+			"unable to create 'ticks' table in the database",
+		)
+	}
+
+	return nil
+}
+
+func (operator *Operator) ReceiveTicks() error {
+	subscription := createSubscribtion()
+	err := operator.websocket.WriteJSON(subscription)
+	if err != nil {
+		return karma.Format(
+			err,
+			"unable to write json-encoded message to websocket connection",
+		)
+	}
+
+	for {
+		message := coinbasepro.Message{}
+		err = operator.websocket.ReadJSON(&message)
+		if err != nil {
+			return karma.Format(
+				err,
+				"unable to read json-encoded message from websocket connection",
+			)
+		}
+
+		ticker, err := prepareTicker(
+			message.ProductID, message.BestAsk, message.BestBid,
+		)
+		if err != nil {
+			return karma.Format(
+				err,
+				"unable to prepare ticker for further sending to channel",
+			)
+		}
+
+		operator.distributionChan <- ticker
+	}
+}
+
+func (operator *Operator) HandleTicks() {
 	for {
 		select {
-		case data, ok := <-operator.distributionChan:
+		case ticker, ok := <-operator.distributionChan:
 			if ok {
-				log.Warning("x ", data)
-				fmt.Printf("Value %v was read.\n", data)
-				switch data.Symbol {
+				log.Debugf(
+					karma.Describe("ticker", ticker),
+					"received ticker",
+				)
+				switch ticker.Symbol {
 				case "BTC-USD":
-					go operator.WriteBTCUSD(data)
+					go operator.WriteBTCUSD(ticker)
 				case "ETH-BTC":
-					go operator.WriteETHBTC(data)
+					go operator.WriteETHBTC(ticker)
 				case "BTC-EUR":
-					go operator.WriteBTCEUR(data)
+					go operator.WriteBTCEUR(ticker)
 				}
 
 				continue
@@ -56,78 +102,47 @@ func (operator *Operator) DistributeTickers() {
 	}
 }
 
-func (operator *Operator) WriteBTCUSD(ticker *database.Ticker) {
-	fmt.Println("ticker: ", ticker)
+func (operator *Operator) WriteBTCUSD(ticker *database.Ticks) {
 	err := operator.database.Write(*ticker)
 	if err != nil {
-		log.Error(err)
-	}
-}
-
-func (operator *Operator) WriteETHBTC(ticker *database.Ticker) {
-	fmt.Println("ticker: ", ticker)
-	err := operator.database.Write(*ticker)
-	if err != nil {
-		log.Error(err)
-	}
-
-}
-
-func (operator *Operator) WriteBTCEUR(ticker *database.Ticker) {
-	fmt.Println("ticker: ", ticker)
-	err := operator.database.Write(*ticker)
-	if err != nil {
-		log.Error(err)
-	}
-
-}
-
-func (operator *Operator) GetPrices() error {
-	subscription := createSubscribtion()
-	err := operator.websocket.WriteJSON(subscription)
-	if err != nil {
-		return karma.Format(
+		log.Errorf(
 			err,
-			"unable to write json as message",
+			"unable to write ticker to the database, ticker: %s",
+			ticker.Symbol,
 		)
 	}
-
-	for true {
-		message := coinbasepro.Message{}
-		err = operator.websocket.ReadJSON(&message)
-		if err != nil {
-			return karma.Format(
-				err,
-				"unable to read json as message",
-			)
-		}
-
-		ask, bid, err := preparePrices(message.BestAsk, message.BestBid)
-		if err != nil {
-			return karma.Format(
-				err,
-				"unable to handle prices",
-			)
-		}
-
-		operator.distributionChan <- &database.Ticker{
-			Symbol:   message.ProductID,
-			AskPrice: ask,
-			BidPrice: bid,
-		}
-	}
-
-	return nil
 }
 
-func preparePrices(ask, bid string) (float64, float64, error) {
-	if ask == "" || bid == "" {
-		return 0, 0, nil
+func (operator *Operator) WriteETHBTC(ticker *database.Ticks) {
+	err := operator.database.Write(*ticker)
+	if err != nil {
+		log.Errorf(
+			err,
+			"unable to write ticker to the database, ticker: %s",
+			ticker.Symbol,
+		)
+	}
+}
+
+func (operator *Operator) WriteBTCEUR(ticker *database.Ticks) {
+	err := operator.database.Write(*ticker)
+	if err != nil {
+		log.Errorf(
+			err,
+			"unable to write ticker to the database, ticker: %s",
+			ticker.Symbol,
+		)
+	}
+}
+
+func prepareTicker(productID, ask, bid string) (*database.Ticks, error) {
+	if ask == "" || bid == "" || productID == "" {
+		return &database.Ticks{}, nil
 	}
 
 	resultAsk, err := strconv.ParseFloat(ask, 64)
 	if err != nil {
-		return 0, 0, karma.Format(
+		return nil, karma.Format(
 			err,
 			"unable to convert ask price to float64, ask: %s",
 			ask,
@@ -136,62 +151,39 @@ func preparePrices(ask, bid string) (float64, float64, error) {
 
 	resultBid, err := strconv.ParseFloat(bid, 64)
 	if err != nil {
-		return 0, 0, karma.Format(
+		return nil, karma.Format(
 			err,
 			"unable to convert bid to float64, bid: %s",
 			bid,
 		)
 	}
 
-	return resultAsk, resultBid, nil
-}
-
-func (operator *Operator) WritePrices() error {
-	err := operator.database.CreateTicksTable()
-	if err != nil {
-		return karma.Format(
-			err,
-			"unable to create schema in the database",
-		)
-	}
-
-	currency_1 := database.Ticker{
-		Timestamp: time.Now().Unix(),
-		Symbol:    "BTC",
-		AskPrice:  23.343,
-		BidPrice:  55.32,
-	}
-
-	err = operator.database.Write(currency_1)
-	if err != nil {
-		return karma.Format(
-			err,
-			"unable to write currency to the database",
-		)
-	}
-
-	return nil
+	return &database.Ticks{
+		Symbol:   productID,
+		AskPrice: resultAsk,
+		BidPrice: resultBid,
+	}, nil
 }
 
 func createSubscribtion() coinbasepro.Message {
 	subscription := coinbasepro.Message{
 		Type: "subscribe",
 		Channels: []coinbasepro.MessageChannel{
-			coinbasepro.MessageChannel{
+			{
 				Name: "ticker",
 				ProductIds: []string{
 					"BTC-USD",
 				},
 			},
 
-			coinbasepro.MessageChannel{
+			{
 				Name: "ticker",
 				ProductIds: []string{
 					"BTC-EUR",
 				},
 			},
 
-			coinbasepro.MessageChannel{
+			{
 				Name: "ticker",
 				ProductIds: []string{
 					"ETH-BTC",

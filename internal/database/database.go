@@ -10,6 +10,10 @@ import (
 	"github.com/reconquest/pkg/log"
 )
 
+const (
+	ERR_CODE_TABLE_ALREADY_EXISTS = "#42P07"
+)
+
 type Database struct {
 	name     string
 	user     string
@@ -17,7 +21,7 @@ type Database struct {
 	client   *pg.DB
 }
 
-type Ticker struct {
+type Ticks struct {
 	Timestamp int64
 	Symbol    string
 	AskPrice  float64
@@ -58,38 +62,43 @@ func (database *Database) Close() error {
 	return nil
 }
 
-func (database *Database) Write(ticker Ticker) error {
+func (database *Database) Write(ticker Ticks) error {
 	ticker.Timestamp = makeTimestamp()
 	_, err := database.client.Model(&ticker).Insert()
 	if err != nil {
-		return karma.Format(
+		return karma.Describe("ticker", ticker).Format(
 			err,
-			"unable to write ticks to the database",
+			"unable to write ticker to the database",
 		)
 	}
 
 	log.Debugf(
 		karma.Describe("symbol", ticker.Symbol).
 			Describe("timestamp", ticker.Timestamp).
-			Describe("timestamp", ticker.AskPrice).
-			Describe("timestamp", ticker.BidPrice),
-		"ticks were successfully written to the database",
+			Describe("ask_price", ticker.AskPrice).
+			Describe("bid_price", ticker.BidPrice),
+		"ticker was successfully written to the database",
 	)
 
 	return nil
 }
 
 func (database *Database) CreateTicksTable() error {
-	var model *Ticker
+	var model *Ticks
 	err := database.client.Model(model).CreateTable(&orm.CreateTableOptions{})
-	if err != nil && !strings.Contains(err.Error(), "already exists") {
+	if strings.Contains(err.Error(), ERR_CODE_TABLE_ALREADY_EXISTS) {
+		log.Info("table 'ticks' already exists in the database")
+		return nil
+	}
+
+	if err != nil {
 		return karma.Format(
 			err,
-			"unable to create table in the database",
+			"unable to create 'ticks' table in the database",
 		)
 	}
 
-	log.Info("table succesfully created")
+	log.Info("table 'ticks' successfully created in the database")
 	return nil
 }
 
