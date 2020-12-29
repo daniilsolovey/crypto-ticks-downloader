@@ -67,9 +67,8 @@ func main() {
 		log.Fatal(err)
 	}
 
-	operator := operator.NewOperator(
-		config, postgresDB, websocket, make(chan *database.Ticks),
-	)
+	channels := operator.CreateChannelsForTickers()
+	operator := operator.NewOperator(config, postgresDB, websocket, channels)
 
 	log.Info("creating 'ticks' table")
 	err = operator.CreateTicksTable()
@@ -78,7 +77,7 @@ func main() {
 	}
 
 	log.Info("start of ticks handling")
-	go operator.HandleTicks()
+	go operator.HandleTickers()
 
 	log.Info("receiving ticks")
 	err = operator.ReceiveTicks()

@@ -8,27 +8,42 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/reconquest/karma-go"
-	"github.com/reconquest/pkg/log"
 )
 
 type Operator struct {
-	config           *config.Config
-	websocket        *websocket.Conn
-	database         *database.Database
-	distributionChan chan *database.Ticks
+	config    *config.Config
+	websocket *websocket.Conn
+	database  *database.Database
+	channels  *Channels
+}
+
+type Channels struct {
+	DistributionChan chan *database.Ticks
+	BTCUSDChan       chan *database.Ticks
+	BTCEURChan       chan *database.Ticks
+	ETHBTCChan       chan *database.Ticks
 }
 
 func NewOperator(
 	config *config.Config,
 	database *database.Database,
 	websocket *websocket.Conn,
-	distributionChan chan *database.Ticks,
+	channels *Channels,
 ) *Operator {
 	return &Operator{
-		config:           config,
-		websocket:        websocket,
-		database:         database,
-		distributionChan: distributionChan,
+		config:    config,
+		websocket: websocket,
+		database:  database,
+		channels:  channels,
+	}
+}
+
+func CreateChannelsForTickers() *Channels {
+	return &Channels{
+		DistributionChan: make(chan *database.Ticks),
+		BTCUSDChan:       make(chan *database.Ticks),
+		BTCEURChan:       make(chan *database.Ticks),
+		ETHBTCChan:       make(chan *database.Ticks),
 	}
 }
 
@@ -74,64 +89,7 @@ func (operator *Operator) ReceiveTicks() error {
 			)
 		}
 
-		operator.distributionChan <- ticker
-	}
-}
-
-func (operator *Operator) HandleTicks() {
-	for {
-		select {
-		case ticker, ok := <-operator.distributionChan:
-			if ok {
-				log.Debugf(
-					karma.Describe("ticker", ticker),
-					"received ticker",
-				)
-				switch ticker.Symbol {
-				case "BTC-USD":
-					go operator.WriteBTCUSD(ticker)
-				case "ETH-BTC":
-					go operator.WriteETHBTC(ticker)
-				case "BTC-EUR":
-					go operator.WriteBTCEUR(ticker)
-				}
-
-				continue
-			}
-		}
-	}
-}
-
-func (operator *Operator) WriteBTCUSD(ticker *database.Ticks) {
-	err := operator.database.Write(*ticker)
-	if err != nil {
-		log.Errorf(
-			err,
-			"unable to write ticker to the database, ticker: %s",
-			ticker.Symbol,
-		)
-	}
-}
-
-func (operator *Operator) WriteETHBTC(ticker *database.Ticks) {
-	err := operator.database.Write(*ticker)
-	if err != nil {
-		log.Errorf(
-			err,
-			"unable to write ticker to the database, ticker: %s",
-			ticker.Symbol,
-		)
-	}
-}
-
-func (operator *Operator) WriteBTCEUR(ticker *database.Ticks) {
-	err := operator.database.Write(*ticker)
-	if err != nil {
-		log.Errorf(
-			err,
-			"unable to write ticker to the database, ticker: %s",
-			ticker.Symbol,
-		)
+		operator.channels.DistributionChan <- ticker
 	}
 }
 
