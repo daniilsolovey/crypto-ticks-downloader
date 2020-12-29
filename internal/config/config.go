@@ -16,6 +16,7 @@ type Database struct {
 type Config struct {
 	WebsocketURL string   `yaml:"websocket_url" required:"true"`
 	Database     Database `yaml:"database" required:"true"`
+	Tickers      []string `yaml:"tickers" required:"true"`
 }
 
 func Load(path string) (*Config, error) {

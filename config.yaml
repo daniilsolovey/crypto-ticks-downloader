@@ -1,4 +1,8 @@
 websocket_url: wss://ws-feed.pro.coinbase.com
+tickers:
+    - BTC-USD
+    - ETH-BTC
+    - BTC-EUR
 database:
     name: "crypto_ticks"
     host: "localhost"

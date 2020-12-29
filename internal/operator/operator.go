@@ -8,43 +8,40 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/reconquest/karma-go"
+	"github.com/reconquest/pkg/log"
 )
 
 type Operator struct {
-	config    *config.Config
-	websocket *websocket.Conn
-	database  *database.Database
-	channels  *Channels
-}
-
-type Channels struct {
-	DistributionChan chan *database.Ticks
-	BTCUSDChan       chan *database.Ticks
-	BTCEURChan       chan *database.Ticks
-	ETHBTCChan       chan *database.Ticks
+	config           *config.Config
+	websocket        *websocket.Conn
+	database         *database.Database
+	channels         map[string](chan *database.Ticks)
+	distributionChan chan *database.Ticks
 }
 
 func NewOperator(
 	config *config.Config,
 	database *database.Database,
 	websocket *websocket.Conn,
-	channels *Channels,
+	tickerChannels map[string](chan *database.Ticks),
+	distributionChan chan *database.Ticks,
 ) *Operator {
 	return &Operator{
-		config:    config,
-		websocket: websocket,
-		database:  database,
-		channels:  channels,
+		config:           config,
+		websocket:        websocket,
+		database:         database,
+		channels:         tickerChannels,
+		distributionChan: distributionChan,
 	}
 }
 
-func CreateChannelsForTickers() *Channels {
-	return &Channels{
-		DistributionChan: make(chan *database.Ticks),
-		BTCUSDChan:       make(chan *database.Ticks),
-		BTCEURChan:       make(chan *database.Ticks),
-		ETHBTCChan:       make(chan *database.Ticks),
+func CreateTickersWithChannels(config *config.Config) map[string](chan *database.Ticks) {
+	tickerChannels := make(map[string](chan *database.Ticks))
+	for _, value := range config.Tickers {
+		tickerChannels[value] = make(chan *database.Ticks)
 	}
+
+	return tickerChannels
 }
 
 func (operator *Operator) CreateTicksTable() error {
@@ -60,7 +57,7 @@ func (operator *Operator) CreateTicksTable() error {
 }
 
 func (operator *Operator) ReceiveTicks() error {
-	subscription := createSubscribtion()
+	subscription := operator.createSubscribtion()
 	err := operator.websocket.WriteJSON(subscription)
 	if err != nil {
 		return karma.Format(
@@ -89,7 +86,7 @@ func (operator *Operator) ReceiveTicks() error {
 			)
 		}
 
-		operator.channels.DistributionChan <- ticker
+		operator.distributionChan <- ticker
 	}
 }
 
@@ -123,32 +120,23 @@ func prepareTicker(productID, ask, bid string) (*database.Ticks, error) {
 	}, nil
 }
 
-func createSubscribtion() coinbasepro.Message {
-	subscription := coinbasepro.Message{
-		Type: "subscribe",
-		Channels: []coinbasepro.MessageChannel{
-			{
-				Name: "ticker",
-				ProductIds: []string{
-					"BTC-USD",
-				},
+func (operator *Operator) createSubscribtion() coinbasepro.Message {
+	var channels []coinbasepro.MessageChannel
+	for key := range operator.channels {
+		subscription := coinbasepro.MessageChannel{
+			Name: "ticker",
+			ProductIds: []string{
+				key,
 			},
+		}
 
-			{
-				Name: "ticker",
-				ProductIds: []string{
-					"BTC-EUR",
-				},
-			},
-
-			{
-				Name: "ticker",
-				ProductIds: []string{
-					"ETH-BTC",
-				},
-			},
-		},
+		log.Debugf(nil, "subscription created: %s", key)
+		channels = append(channels, subscription)
 	}
 
-	return subscription
+	result := coinbasepro.Message{
+		Type:     "subscribe",
+		Channels: channels,
+	}
+	return result
 }

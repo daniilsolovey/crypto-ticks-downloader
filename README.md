@@ -37,10 +37,16 @@ make build
 
 Before running a program configure config.yaml file and create a database
 
+For adding new tickers, add them to yaml 'tickers' section
+
 Base config settings:
 
 ```yaml
 websocket_url: wss://ws-feed.pro.coinbase.com
+tickers:
+    - BTC-USD
+    - ETH-BTC
+    - BTC-EUR
 database:
     name: "your_database_name"
     host: "localhost"
