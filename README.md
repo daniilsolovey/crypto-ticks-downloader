@@ -62,3 +62,24 @@ For running program use command:
 ```
 ./crypto-ticks-downloader
 ```
+
+## BUILD DOCKER IMAGE
+
+```
+docker build -t crypto-ticks-downloader .
+```
+
+## RUN DOCKER CONTAINER
+
+For running program in the docker container use command:
+
+```
+docker run -it --network=host crypto-ticks-downloader
+```
+
+## BUILD AND RUN WITH DOCKER-COMPOSE
+```
+docker-compose build
+
+docker-compose up
+```
