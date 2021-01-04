@@ -62,14 +62,16 @@ func main() {
 	)
 	defer postgresDB.Close()
 
-	websocket, err := websocket.NewWebSocketConnection(config.WebsocketURL)
+	websocketConn, err := websocket.NewWebSocketConnection(config.WebsocketURL)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	websocketClient := websocket.NewClient(websocketConn)
 	tickerWithChannels := operator.CreateTickersWithChannels(config)
 	operator := operator.NewOperator(
-		config, postgresDB, websocket, tickerWithChannels, make(chan *database.Ticks),
+		config, postgresDB, websocketClient,
+		tickerWithChannels, make(chan *database.Ticks),
 	)
 
 	log.Info("creating 'ticks' table")

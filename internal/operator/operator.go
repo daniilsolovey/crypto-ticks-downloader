@@ -5,7 +5,7 @@ import (
 
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/config"
 	"github.com/daniilsolovey/crypto-ticks-downloader/internal/database"
-	"github.com/gorilla/websocket"
+	"github.com/daniilsolovey/crypto-ticks-downloader/internal/websocket"
 	"github.com/preichenberger/go-coinbasepro/v2"
 	"github.com/reconquest/karma-go"
 	"github.com/reconquest/pkg/log"
@@ -13,7 +13,7 @@ import (
 
 type Operator struct {
 	config           *config.Config
-	websocket        *websocket.Conn
+	websocket        websocket.Websocket
 	database         *database.Database
 	channels         map[string](chan *database.Ticks)
 	distributionChan chan *database.Ticks
@@ -22,7 +22,7 @@ type Operator struct {
 func NewOperator(
 	config *config.Config,
 	database *database.Database,
-	websocket *websocket.Conn,
+	websocket websocket.Websocket,
 	tickerChannels map[string](chan *database.Ticks),
 	distributionChan chan *database.Ticks,
 ) *Operator {
@@ -67,8 +67,7 @@ func (operator *Operator) ReceiveTicks() error {
 	}
 
 	for {
-		message := coinbasepro.Message{}
-		err = operator.websocket.ReadJSON(&message)
+		message, err := operator.websocket.ReadJSON()
 		if err != nil {
 			return karma.Format(
 				err,
