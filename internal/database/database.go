@@ -62,6 +62,32 @@ func (database *Database) Close() error {
 	return nil
 }
 
+// func (database *Database) CreateDatabase(name string) error {
+// 	_, err := database.client.Query(nil, "create database ?", name)
+// 	if err != nil {
+// 		return karma.Format(
+// 			err,
+// 			"unable to drop the database: %s",
+// 			name,
+// 		)
+// 	}
+
+// 	return nil
+// }
+
+// func (database *Database) Drop(name string) error {
+// 	_, err := database.client.Query(nil, "drop database ?", name)
+// 	if err != nil {
+// 		return karma.Format(
+// 			err,
+// 			"unable to drop the database: %s",
+// 			name,
+// 		)
+// 	}
+
+// 	return nil
+// }
+
 func (database *Database) Write(ticker Ticks) error {
 	ticker.Timestamp = makeTimestamp()
 	_, err := database.client.Model(&ticker).Insert()

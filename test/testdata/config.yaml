@@ -1,0 +1,11 @@
+websocket_url: wss://ws-feed.pro.coinbase.com
+tickers:
+    - BTC-USD
+    - ETH-BTC
+    - BTC-EUR
+database:
+    name: "test_database_crypto_ticks"
+    host: "localhost"
+    port: 5432
+    user: "postgres"
+    password: "admin"
